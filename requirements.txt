@@ -1,5 +1,6 @@
 altair==6.0.0
 annotated-types==0.7.0
+anthropic==0.84.0
 anyio==4.12.1
 attrs==25.4.0
 blinker==1.9.0
@@ -7,10 +8,12 @@ cachetools==7.0.5
 certifi==2026.2.25
 cffi==2.0.0
 charset-normalizer==3.4.5
+claude==0.4.11
 click==8.3.1
 colorama==0.4.6
 cryptography==46.0.5
 distro==1.9.0
+docstring_parser==0.17.0
 gitdb==4.0.12
 GitPython==3.1.46
 google-ai-generativelanguage==0.6.15
