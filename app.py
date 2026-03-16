@@ -1,7 +1,7 @@
 import streamlit as st
 from utils.model_utils import get_response, MODELS, LANGUAGES
 
-st.set_page_config(page_title="Multi-Model Chat Assistant", page_icon="🤖")
+st.set_page_config(page_title="Herbert's Multi-Model Chat Assistant", page_icon="🤖")
 st.title("🤖 Multi-Model Chat Assistant")
 
 # ── Sidebar ───────────────────────────────────────────────
