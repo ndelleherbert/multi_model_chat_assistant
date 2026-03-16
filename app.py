@@ -1,167 +1,72 @@
 import streamlit as st
-from openai import OpenAI
-import google.generativeai as genai
-import os
-from dotenv import load_dotenv
-import pyperclip
+from utils.model_utils import get_response, MODELS, LANGUAGES
 
-# Load API keys
-load_dotenv()
+st.set_page_config(page_title="Multi-Model Chat Assistant", page_icon="🤖")
+st.title("🤖 Multi-Model Chat Assistant")
 
-openai_key = os.getenv("OPENAI_API_KEY")
-gemini_key = os.getenv("GEMINI_API_KEY")
+# ── Sidebar ───────────────────────────────────────────────
+with st.sidebar:
+    st.header("⚙️ Settings")
 
-# Configure models
-openai_client = OpenAI(api_key=openai_key)
-genai.configure(api_key=gemini_key)
+    # Model name selector
+    selected_model = st.selectbox("🤖 Model Name", list(MODELS.keys()))
 
-# Streamlit title
-st.title("Ndelle Herbert's Multi-Model Chat Assistant")
+    # Model ID (read-only display + selectable)
+    model_id = MODELS[selected_model]["model_id"]
+    st.text_input("🔖 Model ID", value=model_id, disabled=True)
 
-# Session memory
+    # Language selector
+    selected_language = st.selectbox("🌍 Response Language", LANGUAGES)
+
+    st.divider()
+
+    temperature = st.slider("🌡️ Temperature", 0.0, 1.0, 0.7, 0.1)
+    max_tokens = st.slider("📏 Max Tokens", 256, 4096, 1024, 256)
+
+    if st.button("🗑️ Clear Chat"):
+        st.session_state.messages = []
+        st.rerun()
+
+# ── Chat History ──────────────────────────────────────────
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# Sidebar settings
-st.sidebar.header("Settings")
+for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
 
-provider = st.sidebar.selectbox(
-    "Choose Model Provider",
-    ["OpenAI", "Gemini"]
-)
+# ── Regenerate Button ─────────────────────────────────────
+if st.session_state.messages and st.session_state.messages[-1]["role"] == "assistant":
+    if st.button("🔄 Regenerate"):
+        st.session_state.messages.pop()
+        with st.chat_message("assistant"):
+            with st.spinner(f"Regenerating with {selected_model} in {selected_language}..."):
+                response = get_response(
+                    messages=st.session_state.messages,
+                    model_name=selected_model,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    language=selected_language
+                )
+            st.markdown(response)
+        st.session_state.messages.append({"role": "assistant", "content": response})
+        st.rerun()
 
-language = st.sidebar.selectbox(
-    "Output Language",
-    ["English", "Hindi"]
-)
-
-memory_window = st.sidebar.slider(
-    "Memory Window",
-    1,
-    10,
-    5
-)
-
-# Model selection
-if provider == "OpenAI":
-    model = st.sidebar.selectbox(
-        "OpenAI Models",
-        ["gpt-4o-mini", "gpt-4o"]
-    )
-
-else:
-    model = st.sidebar.selectbox(
-        "Gemini Models",
-        ["gemini-1.5-flash", "gemini-1.5-pro"]
-    )
-
-
-# Display chat history
-for i, msg in enumerate(st.session_state.messages):
-
-    with st.chat_message(msg["role"]):
-        st.write(msg["content"])
-
-        if msg["role"] == "assistant":
-            if st.button("Copy", key=i):
-                pyperclip.copy(msg["content"])
-                st.success("Copied!")
-
-
-# Chat input
-user_input = st.chat_input("Ask something...")
-
-if user_input:
-
-    # store user message
-    st.session_state.messages.append(
-        {"role": "user", "content": user_input}
-    )
-
+# ── Chat Input ────────────────────────────────────────────
+if prompt := st.chat_input("Type your message..."):
+    st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
-        st.write(user_input)
-
-    # memory window
-    memory = st.session_state.messages[-memory_window:]
-
-    system_prompt = f"Answer strictly in {language}"
-
-    messages = [{"role": "system", "content": system_prompt}]
-    messages.extend(memory)
-
-    # Generate response
-    if provider == "OpenAI":
-
-        response = openai_client.chat.completions.create(
-            model=model,
-            messages=messages
-        )
-
-        reply = response.choices[0].message.content
-
-    else:
-
-        gemini_model = genai.GenerativeModel(model)
-
-        prompt = "\n".join([m["content"] for m in messages])
-
-        result = gemini_model.generate_content(prompt)
-
-        reply = result.text
-
-    # save assistant message
-    st.session_state.messages.append(
-        {"role": "assistant", "content": reply}
-    )
+        st.markdown(prompt)
 
     with st.chat_message("assistant"):
-        st.write(reply)
-
-
-# Regenerate response
-if st.button("Regenerate Response"):
-
-    if len(st.session_state.messages) >= 2:
-
-        # remove last assistant message
-        if st.session_state.messages[-1]["role"] == "assistant":
-            st.session_state.messages.pop()
-
-        # find last user message
-        last_user = None
-        for msg in reversed(st.session_state.messages):
-            if msg["role"] == "user":
-                last_user = msg["content"]
-                break
-
-        memory = st.session_state.messages[-memory_window:]
-
-        system_prompt = f"Answer strictly in {language}"
-
-        messages = [{"role": "system", "content": system_prompt}]
-        messages.extend(memory)
-
-        if provider == "OpenAI":
-
-            response = openai_client.chat.completions.create(
-                model=model,
-                messages=messages
+        with st.spinner(f"Thinking with {selected_model} in {selected_language}..."):
+            response = get_response(
+                messages=st.session_state.messages,
+                model_name=selected_model,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                language=selected_language
             )
+        st.markdown(response)
 
-            reply = response.choices[0].message.content
-
-        else:
-
-            gemini_model = genai.GenerativeModel(model)
-
-            prompt = "\n".join([m["content"] for m in messages])
-
-            result = gemini_model.generate_content(prompt)
-
-            reply = result.text
-
-        st.session_state.messages.append(
-            {"role": "assistant", "content": reply}
-        )
-
-        st.rerun()
+    st.session_state.messages.append({"role": "assistant", "content": response})
